@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>js → pptx | Conversor de Diapositivas</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:    #0D2B55;
+      --dark:    #1A237E;
+      --blue:    #1565C0;
+      --teal:    #0097A7;
+      --amber:   #F57C00;
+      --white:   #FFFFFF;
+      --offwhite:#F0F4F8;
+      --muted:   #78909C;
+      --green:   #2E7D32;
+      --red:     #C62828;
+      --radius:  16px;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, var(--navy) 0%, var(--dark) 60%, #0D1B4B 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* ── Card ─────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05);
+      width: 100%;
+      max-width: 820px;
+      overflow: hidden;
+    }
+
+    /* ── Header ───────────────────────────────────────── */
+    .card-header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+      padding: 26px 32px 30px;
+      position: relative;
+    }
+    .card-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--amber), var(--teal));
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .header-pptx-icon {
+      font-size: 36px;
+      line-height: 1;
+    }
+    .header-texts { flex: 1; }
+    .header-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--white);
+      letter-spacing: -0.3px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--navy);
+      background: var(--amber);
+      padding: 3px 9px;
+      border-radius: 20px;
+      letter-spacing: 0.8px;
+    }
+    .header-subtitle {
+      color: #90CAF9;
+      font-size: 13px;
+      margin-top: 5px;
+    }
+
+    /* ── Tabs ─────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: var(--offwhite);
+      border-bottom: 2px solid #E0E0E0;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 14px 12px;
+      font-size: 14px;
+      font-weight: 600;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: all 0.2s;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      user-select: none;
+    }
+    .tab-btn.active {
+      color: var(--blue);
+      border-bottom-color: var(--blue);
+      background: var(--white);
+    }
+    .tab-btn:hover:not(.active) {
+      color: var(--navy);
+      background: #DDE4F0;
+    }
+
+    /* ── Card body ────────────────────────────────────── */
+    .card-body { padding: 28px 32px; }
+
+    /* ── Panels ───────────────────────────────────────── */
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Upload zone ──────────────────────────────────── */
+    .upload-zone {
+      border: 2.5px dashed #B0BEC5;
+      border-radius: 12px;
+      padding: 44px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s;
+      background: #F8FAFC;
+      position: relative;
+    }
+    .upload-zone:hover { border-color: var(--teal); background: #E0F7FA; }
+    .upload-zone.drag-over {
+      border-color: var(--teal);
+      background: #E0F7FA;
+      transform: scale(1.015);
+      box-shadow: 0 0 0 4px rgba(0,151,167,0.15);
+    }
+    .upload-zone.has-file {
+      border-color: var(--green);
+      border-style: solid;
+      background: #F1F8E9;
+    }
+    .upload-icon { font-size: 50px; line-height: 1; pointer-events: none; }
+    .upload-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--navy);
+      margin: 12px 0 5px;
+      pointer-events: none;
+    }
+    .upload-subtitle { font-size: 13px; color: var(--muted); pointer-events: none; }
+    .upload-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--green);
+      background: var(--white);
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1.5px solid #A5D6A7;
+    }
+    #fileInput { display: none; }
+
+    /* ── Code editor ──────────────────────────────────── */
+    .code-editor {
+      width: 100%;
+      height: 280px;
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      padding: 16px;
+      border: 2px solid #E0E0E0;
+      border-radius: 10px;
+      background: #1E1E1E;
+      color: #D4D4D4;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+      tab-size: 2;
+    }
+    .code-editor:focus { border-color: var(--teal); }
+    .code-hint {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 7px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    .code-hint a {
+      color: var(--teal);
+      cursor: pointer;
+      text-decoration: underline;
+      font-weight: 600;
+    }
+
+    /* ── Field ────────────────────────────────────────── */
+    .field-group { margin-top: 18px; }
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      margin-bottom: 6px;
+    }
+    .field-input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #E0E0E0;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      color: var(--navy);
+    }
+    .field-input:focus { border-color: var(--blue); }
+
+    /* ── Convert button ───────────────────────────────── */
+    .btn-convert {
+      width: 100%;
+      margin-top: 20px;
+      padding: 16px;
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--white);
+      background: linear-gradient(135deg, var(--teal) 0%, var(--blue) 100%);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      letter-spacing: 0.5px;
+      transition: all 0.25s;
+      box-shadow: 0 4px 18px rgba(0,151,167,0.4);
+    }
+    .btn-convert:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(0,151,167,0.5);
+    }
+    .btn-convert:active:not(:disabled) { transform: translateY(0); }
+    .btn-convert:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+
+    /* ── State panels ─────────────────────────────────── */
+    .state-panel { display: none; padding: 52px 32px; text-align: center; }
+    .state-panel.visible { display: block; }
+
+    /* Loading */
+    .spinner {
+      width: 56px; height: 56px;
+      border: 5px solid #E8EAF6;
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.85s linear infinite;
+      margin: 0 auto 20px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-title { font-size: 18px; font-weight: 700; color: var(--navy); }
+    .loading-sub { font-size: 13px; color: var(--muted); margin-top: 5px; }
+    .progress-bar {
+      background: #E0E0E0;
+      border-radius: 4px;
+      height: 6px;
+      margin: 18px auto 0;
+      max-width: 320px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--teal), var(--blue));
+      border-radius: 4px;
+      animation: indeterminate 1.4s ease-in-out infinite;
+    }
+    @keyframes indeterminate {
+      0%   { width:  0%; margin-left:   0%; }
+      50%  { width: 65%; margin-left:  18%; }
+      100% { width:  0%; margin-left: 100%; }
+    }
+
+    /* Success */
+    .success-icon  { font-size: 58px; line-height: 1; }
+    .success-title { font-size: 24px; font-weight: 800; color: var(--green); margin: 12px 0 4px; }
+    .success-sub   { font-size: 14px; color: var(--muted); }
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 22px;
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--white);
+      background: linear-gradient(135deg, #388E3C, var(--green));
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      box-shadow: 0 4px 18px rgba(46,125,50,0.4);
+      animation: pop-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+    @keyframes pop-in {
+      0%   { transform: scale(0.75); opacity: 0; }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+    .btn-again {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      padding: 9px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--blue);
+      background: none;
+      border: 2px solid var(--blue);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+    .btn-again:hover { background: #E3F2FD; }
+
+    /* Error */
+    .error-icon  { font-size: 50px; line-height: 1; }
+    .error-title { font-size: 20px; font-weight: 700; color: var(--red); margin: 10px 0 6px; }
+    .error-details {
+      background: #1E1E1E;
+      color: #FF8A80;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      padding: 14px;
+      border-radius: 8px;
+      text-align: left;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 12px;
+    }
+    .btn-retry {
+      margin-top: 18px;
+      padding: 11px 28px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      background: var(--red);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Footer ───────────────────────────────────────── */
+    .card-footer {
+      padding: 13px 32px;
+      background: var(--offwhite);
+      border-top: 1px solid #E0E0E0;
+      font-size: 12px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* ── Modal ────────────────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--white);
+      border-radius: 14px;
+      max-width: 660px;
+      width: 100%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 16px 20px;
+      background: var(--navy);
+      color: var(--white);
+      font-weight: 700;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .modal-body { padding: 18px; overflow-y: auto; flex: 1; }
+    .modal-body pre {
+      background: #1E1E1E;
+      color: #D4D4D4;
+      font-family: "Consolas", monospace;
+      font-size: 12px;
+      line-height: 1.65;
+      padding: 16px;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .btn-close-modal {
+      background: none;
+      border: none;
+      color: var(--white);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 2px 8px;
+      line-height: 1;
+    }
+    .btn-fill-template {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      padding: 11px;
+      background: var(--teal);
+      color: var(--white);
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ── Responsive ───────────────────────────────────── */
+    @media (max-width: 520px) {
+      .card-header { padding: 20px; }
+      .card-body   { padding: 18px; }
+      .header-title { font-size: 20px; }
+      .state-panel { padding: 40px 18px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+
+  <!-- ── HEADER ─────────────────────────────────────── -->
+  <div class="card-header">
+    <div class="header-top">
+      <div class="header-pptx-icon">📊</div>
+      <div class="header-texts">
+        <div class="header-title">
+          js → pptx
+          <span class="header-badge">CONVERSOR</span>
+        </div>
+        <div class="header-subtitle">
+          Convierte tu código JavaScript en presentaciones PowerPoint profesionales
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN UI ─────────────────────────────────────── -->
+  <div id="main-ui">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-upload" onclick="switchTab('upload')">
+        📁 Subir archivo .js
+      </button>
+      <button class="tab-btn" id="tab-code" onclick="switchTab('code')">
+        &lt;/&gt; Pegar código
+      </button>
+    </div>
+
+    <div class="card-body">
+
+      <!-- Upload panel -->
+      <div class="panel active" id="panel-upload">
+        <div class="upload-zone" id="uploadZone"
+          onclick="document.getElementById('fileInput').click()"
+          ondragover="onDragOver(event)"
+          ondragleave="onDragLeave(event)"
+          ondrop="onDrop(event)">
+          <div class="upload-icon" id="uploadIcon">📤</div>
+          <div class="upload-title" id="uploadTitle">Arrastra tu archivo .js aquí</div>
+          <div class="upload-subtitle" id="uploadSub">o haz clic para seleccionar</div>
+          <div class="upload-chip" id="uploadChip" style="display:none"></div>
+        </div>
+        <input type="file" id="fileInput" accept=".js" onchange="onFileSelect(event)">
+      </div>
+
+      <!-- Code panel -->
+      <div class="panel" id="panel-code">
+        <textarea
+          class="code-editor"
+          id="codeEditor"
+          placeholder="Pega tu código JavaScript aquí…&#10;&#10;// El código debe usar pptxgenjs&#10;// y llamar a pres.writeFile() al final"
+          spellcheck="false"
+        ></textarea>
+        <div class="code-hint">
+          ⚙️ Usa <code style="background:#EEF;padding:1px 4px;border-radius:3px;font-size:11px">process.env.PPTX_OUTPUT</code> como ruta de salida.
+          <a onclick="openModal()">Ver template de ejemplo</a>
+        </div>
+      </div>
+
+      <!-- Output name -->
+      <div class="field-group">
+        <label class="field-label" for="presName">Nombre de la presentación</label>
+        <input class="field-input" type="text" id="presName"
+          placeholder="ej: Sesion_08_Algoritmos">
+      </div>
+
+      <!-- Convert CTA -->
+      <button class="btn-convert" id="btnConvert" onclick="doConvert()">
+        <span style="font-size:20px">▶</span>
+        <span>CONVERTIR A POWERPOINT</span>
+      </button>
+
+    </div>
+  </div><!-- /#main-ui -->
+
+  <!-- ── LOADING ─────────────────────────────────────── -->
+  <div id="state-loading" class="state-panel">
+    <div class="spinner"></div>
+    <div class="loading-title">Generando presentación…</div>
+    <div class="loading-sub">Esto puede tardar unos segundos</div>
+    <div class="progress-bar"><div class="progress-fill"></div></div>
+  </div>
+
+  <!-- ── SUCCESS ─────────────────────────────────────── -->
+  <div id="state-success" class="state-panel">
+    <div class="success-icon">✅</div>
+    <div class="success-title">¡Presentación lista!</div>
+    <div class="success-sub" id="successSub">Tu archivo PPTX ha sido generado correctamente</div>
+    <br>
+    <a id="downloadLink" class="btn-download" href="#">
+      <span style="font-size:20px">⬇️</span>
+      <span>Descargar .pptx</span>
+    </a>
+    <br>
+    <button class="btn-again" onclick="resetUI()">🔄 Convertir otro archivo</button>
+  </div>
+
+  <!-- ── ERROR ───────────────────────────────────────── -->
+  <div id="state-error" class="state-panel">
+    <div class="error-icon">❌</div>
+    <div class="error-title">Error en la conversión</div>
+    <div class="error-details" id="errorDetails"></div>
+    <br>
+    <button class="btn-retry" onclick="resetUI()">↩ Intentar de nuevo</button>
+  </div>
+
+  <!-- ── FOOTER ──────────────────────────────────────── -->
+  <div class="card-footer">
+    Construido con <strong>pptxgenjs</strong> + <strong>Node.js</strong> &nbsp;|&nbsp;
+    El código se ejecuta localmente en tu servidor
+  </div>
+
+</div><!-- /.card -->
+
+<!-- ── TEMPLATE MODAL ──────────────────────────────── -->
+<div class="modal-overlay" id="templateModal">
+  <div class="modal">
+    <div class="modal-header">
+      📋 Template base para archivos de diapositivas
+      <button class="btn-close-modal" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <pre id="templateSrc">const pptxgen = require("pptxgenjs");
+const path    = require("path");
+
+async function buildSlides() {
+  const pres  = new pptxgen();
+  pres.layout = "LAYOUT_16x9";
+  pres.title  = "Mi Presentación";
+
+  // ── Diapositiva 1: Portada ──────────────────────────
+  const s1 = pres.addSlide();
+  s1.background = { color: "0D2B55" };
+
+  s1.addText("Título Principal", {
+    x: 1, y: 1.8, w: 8, h: 1.5,
+    fontSize: 40, fontFace: "Arial Black",
+    color: "FFFFFF", bold: true, align: "center",
+  });
+
+  s1.addText("Subtítulo de la presentación", {
+    x: 1, y: 3.4, w: 8, h: 0.8,
+    fontSize: 18, fontFace: "Calibri",
+    color: "90CAF9", align: "center",
+  });
+
+  // ── Diapositiva 2: Contenido ────────────────────────
+  const s2 = pres.addSlide();
+  s2.background = { color: "F0F4F8" };
+
+  s2.addShape(pres.shapes.RECTANGLE, {
+    x: 0, y: 0, w: 10, h: 1.1,
+    fill: { color: "1565C0" }, line: { type: "none" },
+  });
+  s2.addText("Slide de Contenido", {
+    x: 0.4, y: 0.1, w: 9, h: 0.9,
+    fontSize: 24, fontFace: "Arial Black",
+    color: "FFFFFF", bold: true, valign: "middle",
+  });
+  s2.addText("• Punto 1\n• Punto 2\n• Punto 3", {
+    x: 0.6, y: 1.4, w: 8.8, h: 3.5,
+    fontSize: 18, fontFace: "Calibri", color: "1A237E",
+  });
+
+  // ── Guardar ─────────────────────────────────────────
+  const outFile = process.env.PPTX_OUTPUT
+    || path.join(__dirname, "presentacion.pptx");
+  await pres.writeFile({ fileName: outFile });
+  console.log("✅ Presentación creada: " + outFile);
+}
+
+buildSlides().catch(console.error);</pre>
+      <button class="btn-fill-template" onclick="fillTemplate()">
+        📋 Usar este template en el editor de código
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let selectedFile = null;
+  let activeTab    = 'upload';
+
+  // ── Tabs ──────────────────────────────────────────────
+  function switchTab(tab) {
+    activeTab = tab;
+    ['upload', 'code'].forEach(t => {
+      document.getElementById('panel-'  + t).classList.toggle('active', t === tab);
+      document.getElementById('tab-'    + t).classList.toggle('active', t === tab);
+    });
+  }
+
+  // ── Drag & Drop ───────────────────────────────────────
+  function onDragOver(e) {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.add('drag-over');
+  }
+  function onDragLeave() {
+    document.getElementById('uploadZone').classList.remove('drag-over');
+  }
+  function onDrop(e) {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) applyFile(f);
+  }
+  function onFileSelect(e) {
+    const f = e.target.files[0];
+    if (f) applyFile(f);
+  }
+
+  function applyFile(f) {
+    if (!f.name.endsWith('.js')) {
+      alert('Solo se permiten archivos .js');
+      return;
+    }
+    selectedFile = f;
+    const zone = document.getElementById('uploadZone');
+    zone.classList.add('has-file');
+    document.getElementById('uploadIcon').textContent  = '✅';
+    document.getElementById('uploadTitle').textContent = 'Archivo listo';
+    document.getElementById('uploadSub').textContent   = 'Haz clic aquí para cambiar el archivo';
+    const chip = document.getElementById('uploadChip');
+    chip.textContent  = '📄 ' + f.name + '  ·  ' + fmtBytes(f.size);
+    chip.style.display = 'inline-flex';
+    // Auto-fill name if empty
+    const nameField = document.getElementById('presName');
+    if (!nameField.value) nameField.value = f.name.replace(/\.js$/, '');
+  }
+
+  function fmtBytes(b) {
+    return b > 1024 * 1024
+      ? (b / 1024 / 1024).toFixed(1) + ' MB'
+      : b > 1024
+        ? (b / 1024).toFixed(1) + ' KB'
+        : b + ' B';
+  }
+
+  // ── Convert ───────────────────────────────────────────
+  async function doConvert() {
+    const name = document.getElementById('presName').value.trim() || 'presentacion';
+    let body, isJSON = false;
+
+    if (activeTab === 'upload') {
+      if (!selectedFile) {
+        alert('Por favor selecciona un archivo .js primero.');
+        return;
+      }
+      const fd = new FormData();
+      fd.append('file', selectedFile);
+      fd.append('name', name);
+      body = fd;
+    } else {
+      const code = document.getElementById('codeEditor').value.trim();
+      if (!code) {
+        alert('Por favor pega tu código JavaScript primero.');
+        return;
+      }
+      body   = JSON.stringify({ code, name });
+      isJSON = true;
+    }
+
+    showState('loading');
+
+    try {
+      const res = await fetch('/convert', {
+        method: 'POST',
+        body,
+        headers: isJSON ? { 'Content-Type': 'application/json' } : undefined,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Error inesperado del servidor.' }));
+        showError(err.error || 'Error desconocido.');
+        return;
+      }
+
+      // Extract filename from Content-Disposition
+      const cd    = res.headers.get('content-disposition') || '';
+      const match = cd.match(/filename\*?=(?:UTF-8'')?["']?([^"';\r\n]+)/i);
+      const fname = match ? decodeURIComponent(match[1].trim()) : (name + '.pptx');
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+
+      const link    = document.getElementById('downloadLink');
+      link.href     = url;
+      link.download = fname;
+
+      document.getElementById('successSub').textContent =
+        fname + '  ·  ' + fmtBytes(blob.size);
+
+      showState('success');
+
+    } catch (err) {
+      showError(err.message || 'Error de conexión. ¿Está el servidor ejecutándose?');
+    }
+  }
+
+  // ── State management ─────────────────────────────────
+  function showState(s) {
+    document.getElementById('main-ui').style.display        = s === 'main' ? '' : 'none';
+    document.getElementById('state-loading').classList.toggle('visible', s === 'loading');
+    document.getElementById('state-success').classList.toggle('visible', s === 'success');
+    document.getElementById('state-error'  ).classList.toggle('visible', s === 'error');
+  }
+
+  function showError(msg) {
+    document.getElementById('errorDetails').textContent = msg;
+    showState('error');
+  }
+
+  function resetUI() {
+    const link = document.getElementById('downloadLink');
+    if (link.href.startsWith('blob:')) URL.revokeObjectURL(link.href);
+    link.href = '#';
+    showState('main');
+  }
+
+  // ── Template modal ────────────────────────────────────
+  function openModal()  { document.getElementById('templateModal').classList.add('open');    }
+  function closeModal() { document.getElementById('templateModal').classList.remove('open'); }
+
+  function fillTemplate() {
+    switchTab('code');
+    document.getElementById('codeEditor').value =
+      document.getElementById('templateSrc').textContent;
+    if (!document.getElementById('presName').value)
+      document.getElementById('presName').value = 'mi_presentacion';
+    closeModal();
+  }
+
+  document.getElementById('templateModal').addEventListener('click', function(e) {
+    if (e.target === this) closeModal();
+  });
+</script>
+</body>
+</html>
