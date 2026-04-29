@@ -61,3 +61,4 @@ buildSlides().catch(console.error);
 | `react` + `react-dom` | Renderizado de íconos SVG |
 | `react-icons` | Biblioteca de íconos |
 | `sharp` | Conversión SVG → PNG para imágenes embebidas |
+usa con responsavilidad 
